@@ -77,8 +77,6 @@ custom_components/haier_evo
         └── ...
 ```
 
-Если папка `custom_components` отсутствует, создайте её вручную.
-
 ---
 
 ### 3. Перезапуск Home Assistant
