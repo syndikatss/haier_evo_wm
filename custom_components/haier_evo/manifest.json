@@ -1,15 +1,15 @@
 {
-  "domain": "haier_evo",
-  "name": "Haier Evo",
+  "domain": "haier_evo_wm",
+  "name": "Haier Evo WM",
   "codeowners": [
-    "@and7ey"
+    "@syndikatss"
   ],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/and7ey/haier_evo",
+  "documentation": "https://github.com/and7ey/haier_evo_wm",
   "homekit": {},
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/and7ey/haier_evo/issues",
+  "issue_tracker": "https://github.com/and7ey/haier_evo_wm/issues",
   "requirements": [
     "requests",
     "websocket-client",
