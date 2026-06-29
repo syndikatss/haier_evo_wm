@@ -1,0 +1,9 @@
+{
+  "name": "Haier Evo WM",
+  "content_in_root": false,
+  "render_readme": true,
+  "country": [
+    "RU"
+  ],
+  "homeassistant": "2025.1.0"
+}
