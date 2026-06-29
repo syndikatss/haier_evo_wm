@@ -1,0 +1,82 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "already configured"
+        },
+        "error": {
+            "cannot_connect": "cannot connect",
+            "invalid_auth": "invalid_auth",
+            "unknown": "unknown"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "password": "Password",
+                    "email": "Login (email)",
+                    "region": "Region"
+                }
+            },
+            "init": {
+                "data": {
+                    "password": "Password",
+                    "email": "Login (email)",
+                    "region": "Region"
+                }
+            }
+        }
+    },
+    "entity": {
+        "climate": {
+            "conditioner": {
+                "state_attributes": {
+                    "preset_mode": {
+                        "state": {
+                            "none": "None",
+                            "sleep": "Quiet",
+                            "boost": "Turbo"
+                        }
+                    },
+                    "swing_horizontal_mode": {
+                        "state": {
+                            "on": "Right/Left",
+                            "off": "Fixed position",
+                            "position_1": "Default position",
+                            "position_2": "Second position",
+                            "position_3": "Third position",
+                            "position_4": "Fourth position",
+                            "position_5": "Fifth position",
+                            "position_6": "Sixth position",
+                            "position_7": "Seventh position",
+                            "auto": "Auto mode"
+                        }
+                    },
+                    "swing_mode": {
+                        "state": {
+                            "on": "Raise/Lower",
+                            "off": "Fixed position",
+                            "upper": "Upper position",
+                            "position_1": "First position",
+                            "bottom": "Lower position",
+                            "position_2": "Second position",
+                            "position_3": "Third position",
+                            "position_4": "Fourth position",
+                            "position_5": "Fifth position",
+                            "auto": "Auto mode",
+                            "special": "Raise/Lower"
+                        }
+                    }
+                }
+            }
+        },
+        "select": {
+            "conditioner_eco_sensor": {
+                "state": {
+                    "off": "Disabled",
+                    "outlining": "Outlining",
+                    "related": "Related",
+                    "on": "Active"
+                }
+            }
+        }
+    }
+}

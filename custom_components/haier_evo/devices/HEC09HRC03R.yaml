@@ -1,0 +1,29 @@
+attributes:
+  - name: swing_mode
+    id: "8"
+    mappings:
+      - haier: "0"
+        value: "off"
+      - haier: "8"
+        value: "on"
+  - name: quiet
+    id: "26"
+    mappings:
+      - haier: "0"
+        value: "off"
+      - haier: "1"
+        value: "on"
+  - name: health
+    id: "18"
+    mappings:
+      - haier: "0"
+        value: "off"
+      - haier: "1"
+        value: "on"
+  - name: light
+    id: "23"
+    mappings:
+      - haier: "1"
+        value: "off"
+      - haier: "0"
+        value: "on"
