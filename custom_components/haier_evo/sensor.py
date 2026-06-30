@@ -102,6 +102,7 @@ class HaierWMProgramRemainingTimeSensor(HaierSensor):
         # the total program countdown instead of becoming unavailable.
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_remaining_time"
         self._attr_name = f"{device.device_name} Оставшееся время программы"
+        self._attr_icon = "mdi:timer-outline"
         self._attr_native_unit_of_measurement = "мин"
 
 
@@ -112,6 +113,7 @@ class HaierWMCycleRemainingTimeSensor(HaierSensor):
         self._device_attr_name = "cycle_remaining_time"
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_cycle_remaining_time"
         self._attr_name = f"{device.device_name} Оставшееся время этапа"
+        self._attr_icon = "mdi:timer-sand"
         self._attr_native_unit_of_measurement = "мин"
 
 
@@ -126,6 +128,7 @@ class HaierWMStatusSensor(HaierSensor):
         self._device_attr_name = "status"
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_status"
         self._attr_name = f"{device.device_name} Статус"
+        self._attr_icon = "mdi:washing-machine"
 
     @property
     def native_value(self):
@@ -142,6 +145,7 @@ class HaierWMProgramSensor(HaierWMStatusSensor):
         self._device_attr_name = "program"
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_program_sensor"
         self._attr_name = f"{device.device_name} Программа"
+        self._attr_icon = "mdi:washing-machine"
 
 
 class HaierWMSelectedProgramSensor(HaierWMStatusSensor):
@@ -151,6 +155,7 @@ class HaierWMSelectedProgramSensor(HaierWMStatusSensor):
         self._device_attr_name = "selected_program"
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_selected_program"
         self._attr_name = f"{device.device_name} Выбранная программа"
+        self._attr_icon = "mdi:playlist-check"
 
 
 class HaierWMTemperatureSensor(HaierSensor):
@@ -160,6 +165,7 @@ class HaierWMTemperatureSensor(HaierSensor):
         self._device_attr_name = "temperature"
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_temperature_sensor"
         self._attr_name = f"{device.device_name} Температура"
+        self._attr_icon = "mdi:thermometer"
         self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
 
 
@@ -170,6 +176,7 @@ class HaierWMSpinSpeedSensor(HaierSensor):
         self._device_attr_name = "spin_speed"
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_spin_speed_sensor"
         self._attr_name = f"{device.device_name} Скорость отжима"
+        self._attr_icon = "mdi:rotate-right"
         self._attr_native_unit_of_measurement = "rpm"
 
 
@@ -183,6 +190,7 @@ class HaierWMEnergySensor(HaierSensor):
         self._device_attr_name = "energy"
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_energy"
         self._attr_name = f"{device.device_name} Энергия"
+        self._attr_icon = "mdi:lightning-bolt"
         self._attr_native_unit_of_measurement = "kWh"
 
 
@@ -196,6 +204,7 @@ class HaierWMPowerSensor(HaierSensor):
         self._device_attr_name = "power"
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_power"
         self._attr_name = f"{device.device_name} Мощность"
+        self._attr_icon = "mdi:flash"
         self._attr_native_unit_of_measurement = "W"
 
 
@@ -211,6 +220,7 @@ class HaierWMWaterRawSensor(HaierSensor):
         self._device_attr_name = "water_raw"
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_water_raw"
         self._attr_name = f"{device.device_name} Водомер raw"
+        self._attr_icon = "mdi:water"
 
 
 
@@ -223,6 +233,7 @@ class HaierWMProgramProgressSensor(HaierSensor):
         self._device_attr_name = "program_progress"
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_program_progress"
         self._attr_name = f"{device.device_name} Прогресс программы"
+        self._attr_icon = "mdi:progress-clock"
         self._attr_native_unit_of_measurement = "%"
 
 
@@ -235,6 +246,7 @@ class HaierWMRinseCountSensor(HaierSensor):
         self._device_attr_name = "rinse_count"
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_rinse_count"
         self._attr_name = f"{device.device_name} Осталось полосканий"
+        self._attr_icon = "mdi:waves"
 
 
 class HaierWMDirtLevelSensor(HaierWMStatusSensor):
@@ -244,6 +256,7 @@ class HaierWMDirtLevelSensor(HaierWMStatusSensor):
         self._device_attr_name = "dirt_level"
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_dirt_level"
         self._attr_name = f"{device.device_name} Уровень загрязнения"
+        self._attr_icon = "mdi:water-opacity"
 
 
 class HaierWMSteamFunctionSensor(HaierWMStatusSensor):
@@ -253,6 +266,7 @@ class HaierWMSteamFunctionSensor(HaierWMStatusSensor):
         self._device_attr_name = "steam_function"
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_steam_function"
         self._attr_name = f"{device.device_name} Функция пара"
+        self._attr_icon = "mdi:weather-fog"
 
 
 class HaierWMRawDiagnosticSensor(HaierSensor):
@@ -265,6 +279,7 @@ class HaierWMRawDiagnosticSensor(HaierSensor):
         self._device_attr_name = attr_name
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_{attr_name}"
         self._attr_name = f"{device.device_name} {title}"
+        self._attr_icon = "mdi:code-braces"
 
 class HaierWMPhaseSensor(HaierWMStatusSensor):
 
@@ -273,6 +288,7 @@ class HaierWMPhaseSensor(HaierWMStatusSensor):
         self._device_attr_name = "phase"
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_phase"
         self._attr_name = f"{device.device_name} Этап программы"
+        self._attr_icon = "mdi:timeline-clock"
 
 
 
@@ -285,6 +301,7 @@ class HaierWMPhaseCodeSensor(HaierSensor):
         self._device_attr_name = "phase_code"
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_phase_code"
         self._attr_name = f"{device.device_name} Код этапа"
+        self._attr_icon = "mdi:code-json"
 
 
 class HaierWMLegacyPhaseCodeSensor(HaierSensor):
@@ -295,6 +312,7 @@ class HaierWMLegacyPhaseCodeSensor(HaierSensor):
         self._device_attr_name = "legacy_phase_code"
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_legacy_phase_code"
         self._attr_name = f"{device.device_name} Код этапа 90"
+        self._attr_icon = "mdi:history"
 
 
 class HaierWMDoorLockSensor(HaierWMStatusSensor):
@@ -304,3 +322,4 @@ class HaierWMDoorLockSensor(HaierWMStatusSensor):
         self._device_attr_name = "door_lock"
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_door_lock"
         self._attr_name = f"{device.device_name} Блокировка двери"
+        self._attr_icon = "mdi:door-closed-lock"
