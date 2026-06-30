@@ -246,6 +246,15 @@ class HaierWMDirtLevelSensor(HaierWMStatusSensor):
         self._attr_name = f"{device.device_name} Уровень загрязнения"
 
 
+class HaierWMSteamFunctionSensor(HaierWMStatusSensor):
+
+    def __init__(self, device: api.HaierWM):
+        super().__init__(device)
+        self._device_attr_name = "steam_function"
+        self._attr_unique_id = f"{device.device_id}_{device.device_model}_steam_function"
+        self._attr_name = f"{device.device_name} Функция пара"
+
+
 class HaierWMRawDiagnosticSensor(HaierSensor):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_suggested_display_precision = 2

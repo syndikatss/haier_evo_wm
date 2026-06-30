@@ -1410,6 +1410,23 @@ class HaierREF(HaierDevice):
             entities.append(select.HaierREFMyZoneSelect(self))
         return entities
 
+
+    def _wm_sensor_available(self, name: str) -> bool:
+        """Return True when a WM sensor can be useful.
+
+        Older code created WM entities only when the model YAML contained the
+        exact named attribute. For unknown/partially detected models this meant
+        that one missing mapping could hide otherwise valid values.  Now we
+        create sensors per field when either a config mapping exists or the
+        value was already discovered from the device data/autodetect fallback.
+        """
+        try:
+            if self.config[name] is not None:
+                return True
+        except Exception:
+            pass
+        return getattr(self, name, None) not in (None, "None", "unknown")
+
     def create_entities_sensor(self) -> list:
         from . import sensor
         entities = []
@@ -1473,6 +1490,7 @@ class HaierWM(HaierDevice):
         self.program_progress = None
         self.rinse_count = None
         self.dirt_level = None
+        self.steam_function = None
         self.raw_46 = None
         self.raw_47 = None
         self.raw_61 = None
@@ -1508,6 +1526,7 @@ class HaierWM(HaierDevice):
             "program_progress": self.program_progress,
             "rinse_count": self.rinse_count,
             "dirt_level": self.dirt_level,
+            "steam_function": self.steam_function,
             "raw_46": self.raw_46,
             "raw_47": self.raw_47,
             "raw_61": self.raw_61,
@@ -1526,9 +1545,115 @@ class HaierWM(HaierDevice):
         for attr in attrs:
             self.config.attrs.append(attr)
         self.config.merge_attributes()
+        self._apply_wm_autodetect()
         for attr in self.config.attrs:
             self._set_attribute_value(str(attr.code), attr.current)
             _LOGGER.debug(f"{self.device_name}: {attr}")
+
+    def _attr_values(self, attr) -> set[str]:
+        try:
+            return {str(i.value) for i in attr.list if i.value not in (None, "")}
+        except Exception:
+            return set()
+
+    def _has_named_attr(self, name: str) -> bool:
+        return self.config.get_attr_by_name(name) is not None
+
+    def _code_has_named_attr(self, code: str) -> bool:
+        return any(str(a.code) == str(code) and a.name != "unknown" for a in self.config.attrs)
+
+    def _rename_raw_attr(self, code: str, name: str) -> bool:
+        if self._has_named_attr(name):
+            return False
+        # Prefer an API/raw attribute with the requested code. If the model YAML
+        # already contains a named attribute, _has_named_attr() above keeps it.
+        attr = next((a for a in self.config.attrs if str(a.code) == str(code)), None)
+        if not attr:
+            return False
+        old_name = attr.name
+        attr.name = name
+        self.config._attrs_cache.pop(old_name, None)
+        self.config._attrs_cache.pop(name, None)
+        _LOGGER.debug("%s: WM autodetect %s -> code %s", self.device_name, name, code)
+        return True
+
+    def _find_list_attr_by_values(self, required: set[str], *, exclude_codes: set[str] | None = None):
+        exclude_codes = exclude_codes or set()
+        best = None
+        best_score = 0
+        for attr in self.config.attrs:
+            code = str(attr.code)
+            if code in exclude_codes or code == "-1":
+                continue
+            values = self._attr_values(attr)
+            if not values:
+                continue
+            score = len(values & required)
+            if score > best_score:
+                best = attr
+                best_score = score
+        return best if best_score >= max(3, min(len(required), 5)) else None
+
+    def _find_program_attr(self):
+        # Current/running program is a long LIST, but it is not the physical knob
+        # selector (code 0) and not the phase list (code 18). Known models use 71/69.
+        for code in ("71", "69"):
+            attr = next((a for a in self.config.attrs if str(a.code) == code), None)
+            if attr and len(self._attr_values(attr)) >= 10:
+                return attr
+        candidates = []
+        for attr in self.config.attrs:
+            code = str(attr.code)
+            if code in {"0", "18", "48", "50", "61", "63"} or code == "-1":
+                continue
+            values = self._attr_values(attr)
+            if len(values) >= 20:
+                candidates.append((len(values), attr))
+        return sorted(candidates, key=lambda x: x[0], reverse=True)[0][1] if candidates else None
+
+    def _apply_wm_autodetect(self) -> None:
+        """Conservative fallback for unknown WM models.
+
+        This only fills missing fields, so known YAML profiles stay authoritative.
+        It lets similar washers expose at least core sensors without adding a full
+        model profile for every code shift.
+        """
+        # Stable/common codes seen on WM_BASE models.
+        for code, name in (("0", "selected_program"), ("18", "phase"), ("90", "legacy_phase_code"), ("21", "door_lock"), ("38", "power"), ("40", "energy"), ("39", "water_raw")):
+            self._rename_raw_attr(code, name)
+
+        # Total remaining time: HW70/HW90 use 33, HW60 uses 32. Keep YAML if present.
+        if not self._has_named_attr("program_remaining_time"):
+            for code in ("33", "32"):
+                if self._rename_raw_attr(code, "program_remaining_time"):
+                    break
+
+        # Keep useful unknown WM codes as disabled diagnostic sensors. This does
+        # not affect known fields and helps add new models without asking users
+        # for huge dumps every time.  Code 32 is intentionally not forced to raw:
+        # on HW70/HW90 it is steam_function, on HW60 it is remaining time.
+        for code in ("31", "33", "37", "45", "46", "47", "61", "68", "88", "89", "94", "95"):
+            if not self._code_has_named_attr(code):
+                self._rename_raw_attr(code, f"raw_{code}")
+
+        # Temperature list normally contains 0/10/20/.../100.
+        if not self._has_named_attr("temperature"):
+            temp_values = {str(i) for i in range(0, 101, 10)}
+            attr = self._find_list_attr_by_values(temp_values, exclude_codes={"0", "18", "69", "71"})
+            if attr:
+                self._rename_raw_attr(str(attr.code), "temperature")
+
+        # Spin list normally contains 0/200/400/.../1600.
+        if not self._has_named_attr("spin_speed"):
+            spin_values = {"0", "200", "400", "600", "800", "1000", "1200", "1400", "1600"}
+            attr = self._find_list_attr_by_values(spin_values, exclude_codes={"0", "18", "48", "50", "69", "71"})
+            if attr:
+                self._rename_raw_attr(str(attr.code), "spin_speed")
+
+        if not self._has_named_attr("program"):
+            attr = self._find_program_attr()
+            if attr:
+                self._rename_raw_attr(str(attr.code), "program")
 
     def _clean_value(self, value):
         return WM.clean_value(value)
@@ -1673,6 +1798,8 @@ class HaierWM(HaierDevice):
             self.rinse_count = self._as_number(numeric_value)
         elif name == "dirt_level":
             self.dirt_level = display
+        elif name == "steam_function":
+            self.steam_function = display
         elif name.startswith("raw_"):
             setattr(self, name, self._as_number(numeric_value))
         elif name == "phase":
@@ -1782,50 +1909,82 @@ class HaierWM(HaierDevice):
             self._send_single_command(command)
         self._inited = True
 
+
+    def _wm_sensor_available(self, name: str) -> bool:
+        """Return True when a WM sensor can be useful.
+
+        Older code created WM entities only when the model YAML contained the
+        exact named attribute. For unknown/partially detected models this meant
+        that one missing mapping could hide otherwise valid values.  Now we
+        create sensors per field when either a config mapping exists or the
+        value was already discovered from the device data/autodetect fallback.
+        """
+        try:
+            if self.config[name] is not None:
+                return True
+        except Exception:
+            pass
+        return getattr(self, name, None) not in (None, "None", "unknown")
+
     def create_entities_sensor(self) -> list:
         from . import sensor
         entities = []
-        if self.config['program_remaining_time'] is not None or self.config['remaining_time'] is not None:
+        # Create WM entities independently: if a model profile/autodetect found
+        # one field, expose that field even when other mappings are missing.
+        if self._wm_sensor_available('program_remaining_time') or self._wm_sensor_available('remaining_time'):
             entities.append(sensor.HaierWMProgramRemainingTimeSensor(self))
-        if self.config['cycle_remaining_time'] is not None or self.config['remaining_time'] is not None:
+        if self._wm_sensor_available('cycle_remaining_time') or self._wm_sensor_available('remaining_time'):
             entities.append(sensor.HaierWMCycleRemainingTimeSensor(self))
-        if self.config['status'] is not None:
+        if self._wm_sensor_available('status'):
             entities.append(sensor.HaierWMStatusSensor(self))
-        if self.config['selected_program'] is not None:
+        if self._wm_sensor_available('selected_program'):
             entities.append(sensor.HaierWMSelectedProgramSensor(self))
-        if self.config['program'] is not None:
+        if self._wm_sensor_available('program'):
             entities.append(sensor.HaierWMProgramSensor(self))
-        if self.config['temperature'] is not None:
+        if self._wm_sensor_available('temperature'):
             entities.append(sensor.HaierWMTemperatureSensor(self))
-        if self.config['spin_speed'] is not None:
+        if self._wm_sensor_available('spin_speed'):
             entities.append(sensor.HaierWMSpinSpeedSensor(self))
-        if self.config['energy'] is not None:
+        if self._wm_sensor_available('energy'):
             entities.append(sensor.HaierWMEnergySensor(self))
-        if self.config['power'] is not None:
+        if self._wm_sensor_available('power'):
             entities.append(sensor.HaierWMPowerSensor(self))
-        if self.config['water_raw'] is not None:
+        if self._wm_sensor_available('water_raw'):
             entities.append(sensor.HaierWMWaterRawSensor(self))
-        if self.config['program_progress'] is not None:
+        if self._wm_sensor_available('program_progress'):
             entities.append(sensor.HaierWMProgramProgressSensor(self))
-        if self.config['rinse_count'] is not None:
+        if self._wm_sensor_available('rinse_count'):
             entities.append(sensor.HaierWMRinseCountSensor(self))
-        if self.config['dirt_level'] is not None:
+        if self._wm_sensor_available('dirt_level'):
             entities.append(sensor.HaierWMDirtLevelSensor(self))
+        if self._wm_sensor_available('steam_function'):
+            entities.append(sensor.HaierWMSteamFunctionSensor(self))
         for raw_attr, raw_title in (
+            ("raw_31", "WM raw 31"),
+            ("raw_33", "WM raw 33"),
             ("raw_34", "WM raw 34"),
+            ("raw_37", "WM raw 37"),
+            ("raw_45", "WM raw 45"),
+            ("raw_46", "WM raw 46"),
+            ("raw_47", "WM raw 47"),
             ("raw_61", "WM raw 61"),
             ("raw_68", "WM raw 68"),
+            ("raw_88", "WM raw 88"),
+            ("raw_89", "WM raw 89"),
+            ("raw_94", "WM raw 94"),
+            ("raw_95", "WM raw 95"),
         ):
-            if self.config[raw_attr] is not None:
+            if self._wm_sensor_available(raw_attr):
                 entities.append(sensor.HaierWMRawDiagnosticSensor(self, raw_attr, raw_title))
-        if self.config['phase'] is not None:
+        if self._wm_sensor_available('phase'):
             entities.append(sensor.HaierWMPhaseSensor(self))
-        if self.config['phase_code'] is not None:
+        if self._wm_sensor_available('phase_code'):
             entities.append(sensor.HaierWMPhaseCodeSensor(self))
-        if self.config['legacy_phase_code'] is not None:
+        if self._wm_sensor_available('legacy_phase_code'):
             entities.append(sensor.HaierWMLegacyPhaseCodeSensor(self))
-        if self.config['door_lock'] is not None:
+        if self._wm_sensor_available('door_lock'):
             entities.append(sensor.HaierWMDoorLockSensor(self))
+        _LOGGER.debug("%s: WM created %s sensor entities", self.device_name, len(entities))
         return entities
 
 

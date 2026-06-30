@@ -1,6 +1,6 @@
-# Haier Evo RU washing machine HW70-BP12337U1
-# Model name is normalized by integration to HW70BP12337.
-# Codes were identified from the user's Evo API dumps.
+# Haier Evo RU washing machine HW90-B14367U1
+# Model name is normalized by integration to HW90B14367.
+# Codes were identified from HW90-B14367U1 Evo API dump; profile is close to HW70.
 command_name: "8"
 attributes:
   - name: status

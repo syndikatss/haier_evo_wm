@@ -29,9 +29,12 @@ PANEL_PROGRAM_NAMES: dict[str, str] = {
     "15": "Деликатная",
     "17": "Шерсть",
     "21": "Спортивная",
+    "22": "Бережная",
     "23": "Ежедневная",
+    "45": "Особая программа",
     "49": "Гигиена",
     "56": "Авто",
+    "59": "УФ-обработка",
     "71": "Освежить",
     "86": "Смешанная",
 }
@@ -133,6 +136,13 @@ DIRT_LEVEL_NAMES: dict[str, str] = {
     "3": "Высокий",
 }
 
+STEAM_FUNCTION_NAMES: dict[str, str] = {
+    "0": "Нет",
+    "1": "Да",
+    "false": "Нет",
+    "true": "Да",
+}
+
 CODE_TO_FIELD: dict[str, str] = {
     "67": "status",
     "71": "program",
@@ -145,6 +155,7 @@ CODE_TO_FIELD: dict[str, str] = {
     "38": "power",
     "39": "water_raw",
     "0": "selected_program",
+    "32": "steam_function",
     "34": "raw_34",
     "37": "program_progress",
     "46": "rinse_count",
@@ -172,7 +183,7 @@ NUMERIC_FIELDS: set[str] = {
     "raw_68",
 }
 
-TEXT_FIELDS: set[str] = {"status", "program", "selected_program", "phase", "door_lock", "dirt_level"}
+TEXT_FIELDS: set[str] = {"status", "program", "selected_program", "phase", "door_lock", "dirt_level", "steam_function"}
 
 
 def clean_value(value):
@@ -253,6 +264,8 @@ def map_value(name: str, value):
         if text in DIRT_LEVEL_NAMES:
             return DIRT_LEVEL_NAMES[text]
         return f"Особый ({text})" if text not in (None, "None") else None
+    if name == "steam_function":
+        return STEAM_FUNCTION_NAMES.get(text, value)
     return value
 
 
