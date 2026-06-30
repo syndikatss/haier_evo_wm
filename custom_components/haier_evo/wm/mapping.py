@@ -8,9 +8,9 @@ and future appliance support can stay independent.
 from __future__ import annotations
 
 PROGRAM_NAMES: dict[str, str] = {
-    "1": "Авто",
+    "1": "Программа 1",
     "13": "Спортивная",
-    "57": "Авто",
+    "57": "Программа 57",
 }
 
 # Code 0 is the program selected on the physical washer panel / knob.
@@ -143,19 +143,28 @@ STEAM_FUNCTION_NAMES: dict[str, str] = {
     "true": "Да",
 }
 
+ON_OFF_NAMES: dict[str, str] = {
+    "0": "Выключено",
+    "1": "Включено",
+    "false": "Выключено",
+    "true": "Включено",
+}
+
 CODE_TO_FIELD: dict[str, str] = {
     "67": "status",
     "71": "program",
     "50": "temperature",
     "63": "spin_speed",
     "33": "program_remaining_time",
-    "195": "cycle_remaining_time",
     "51": "cycle_remaining_time",
     "40": "energy",
     "38": "power",
     "39": "water_raw",
     "0": "selected_program",
-    "32": "steam_function",
+    "7": "steam_function",
+    "15": "delayed_start_enabled",
+    "32": "delayed_start_hours",
+    "59": "anti_crease",
     "34": "raw_34",
     "37": "program_progress",
     "46": "rinse_count",
@@ -171,19 +180,32 @@ NUMERIC_FIELDS: set[str] = {
     "temperature",
     "spin_speed",
     "program_remaining_time",
+    "delayed_start_hours",
     "cycle_remaining_time",
+    "program_duration",
     "remaining_time",
     "energy",
     "power",
     "water_raw",
+    "raw_31",
     "raw_34",
+    "raw_35",
+    "raw_36",
+    "raw_95",
+    "raw_195",
     "program_progress",
     "rinse_count",
     "raw_61",
     "raw_68",
+    "raw_88",
+    "raw_89",
+    "raw_91",
+    "raw_94",
+    "raw_117",
+    "raw_205",
 }
 
-TEXT_FIELDS: set[str] = {"status", "program", "selected_program", "phase", "door_lock", "dirt_level", "steam_function"}
+TEXT_FIELDS: set[str] = {"status", "program", "selected_program", "phase", "door_lock", "dirt_level", "steam_function", "delayed_start_enabled", "anti_crease"}
 
 
 def clean_value(value):
@@ -266,6 +288,8 @@ def map_value(name: str, value):
         return f"Особый ({text})" if text not in (None, "None") else None
     if name == "steam_function":
         return STEAM_FUNCTION_NAMES.get(text, value)
+    if name in ("delayed_start_enabled", "anti_crease"):
+        return ON_OFF_NAMES.get(text, value)
     return value
 
 

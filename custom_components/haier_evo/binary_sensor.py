@@ -1,5 +1,5 @@
 import weakref
-from homeassistant.components.binary_sensor import BinarySensorEntity
+from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorDeviceClass
 from homeassistant.core import HomeAssistant
 from .const import DOMAIN
 from . import api
@@ -76,3 +76,80 @@ class HaierREFSuperCoolingSensor(HaierREFBinarySensor):
         self._device_attr_name = "super_cooling"
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_super_cooling"
         self._attr_name = f"{device.device_name} Супер-охлаждение"
+
+
+class HaierWMBinarySensor(HaierBinarySensor):
+    _attr_icon = "mdi:washing-machine"
+
+    @property
+    def is_on(self) -> bool:
+        value = getattr(self._device, self._device_attr_name, None)
+        return str(value) in ("1", "true", "True", "Да", "Включено", "Заблокирована")
+
+
+class HaierWMSteamBinarySensor(HaierWMBinarySensor):
+
+    def __init__(self, device: api.HaierWM) -> None:
+        super().__init__(device)
+        self._device_attr_name = "steam_function"
+        self._attr_unique_id = f"{device.device_id}_{device.device_model}_steam_function_binary"
+        self._attr_name = f"{device.device_name} Функция пара"
+        self._attr_icon = "mdi:weather-fog"
+
+
+class HaierWMAntiCreaseBinarySensor(HaierWMBinarySensor):
+
+    def __init__(self, device: api.HaierWM) -> None:
+        super().__init__(device)
+        self._device_attr_name = "anti_crease"
+        self._attr_unique_id = f"{device.device_id}_{device.device_model}_anti_crease_binary"
+        self._attr_name = f"{device.device_name} Антисминание"
+        self._attr_icon = "mdi:iron-outline"
+
+
+class HaierWMDelayedStartBinarySensor(HaierWMBinarySensor):
+
+    def __init__(self, device: api.HaierWM) -> None:
+        super().__init__(device)
+        self._device_attr_name = "delayed_start_enabled"
+        self._attr_unique_id = f"{device.device_id}_{device.device_model}_delayed_start_binary"
+        self._attr_name = f"{device.device_name} Отложенный старт"
+        self._attr_icon = "mdi:clock-start"
+
+
+class HaierWMDoorLockBinarySensor(HaierWMBinarySensor):
+    _attr_device_class = BinarySensorDeviceClass.LOCK
+
+    def __init__(self, device: api.HaierWM) -> None:
+        super().__init__(device)
+        self._device_attr_name = "door_lock"
+        self._attr_unique_id = f"{device.device_id}_{device.device_model}_door_lock_binary"
+        self._attr_name = f"{device.device_name} Блокировка дверцы"
+        self._attr_icon = "mdi:door-closed-lock"
+
+    @property
+    def is_on(self) -> bool | None:
+        value = getattr(self._device, self._device_attr_name, None)
+        if value in (None, "None", "unknown"):
+            return None
+        return not super().is_on
+
+
+class HaierWMDoorOpenBinarySensor(HaierWMBinarySensor):
+    _attr_device_class = BinarySensorDeviceClass.DOOR
+
+    def __init__(self, device: api.HaierWM) -> None:
+        super().__init__(device)
+        self._device_attr_name = "door_open"
+        self._attr_unique_id = f"{device.device_id}_{device.device_model}_door_open_binary"
+        self._attr_name = f"{device.device_name} Дверца"
+        self._attr_icon = "mdi:door-open"
+
+    @property
+    def is_on(self) -> bool | None:
+        value = getattr(self._device, self._device_attr_name, None)
+        if value in (None, "None", "unknown"):
+            value = getattr(self._device, "raw_31", None)
+        if value in (None, "None", "unknown"):
+            return None
+        return str(value) in ("1", "true", "True", "Да", "Открыта")

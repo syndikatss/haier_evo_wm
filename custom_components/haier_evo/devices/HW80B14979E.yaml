@@ -1,6 +1,6 @@
-# Haier Evo RU washing machine HW70-BP12337U1
-# Model name is normalized by integration to HW70BP12337.
-# Codes were identified from the user's Evo API dumps.
+# Haier Evo RU washing machine HW80-B14979E
+# Added from user dump. Core WM_BASE codes match HW70/HW90 profile;
+# extra HW80-only codes stay diagnostic until confirmed.
 command_name: "8"
 attributes:
   - name: status
@@ -293,6 +293,12 @@ attributes:
   # Code 195 is not understood yet; keep it diagnostic.
   - name: raw_195
     id: "195"
+  - name: raw_91
+    id: "91"
+  - name: raw_117
+    id: "117"
+  - name: raw_205
+    id: "205"
   # Legacy/compatibility field; the code keeps it mapped to program time.
   - name: remaining_time
     id: "33"

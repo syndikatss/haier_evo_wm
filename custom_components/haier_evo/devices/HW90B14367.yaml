@@ -285,13 +285,13 @@ attributes:
         value: "1400"
       - haier: "1600"
         value: "1600"
-  # Confirmed against the physical washer display: code 33 is the
-  # remaining time of the whole program.
+  # Time shown on the washer display is split into hours and minutes:
+  # code 32 = hours, code 33 = minutes. The integration calculates
+  # program duration and delayed start from these two codes.
   - name: program_remaining_time
     id: "33"
-  # Experimental stage/cycle countdown. Keep visible for observation;
-  # if unavailable it may stay unknown/0 depending on the program.
-  - name: cycle_remaining_time
+  # Code 195 is not understood yet; keep it diagnostic.
+  - name: raw_195
     id: "195"
   # Legacy/compatibility field; the code keeps it mapped to program time.
   - name: remaining_time
@@ -320,17 +320,43 @@ attributes:
   # Program selected on the physical washer panel / knob.
   - name: selected_program
     id: "0"
-  # Whether selected program supports steam function. Confirmed on HW70/HW90.
+  # Steam function. Confirmed on HW70/HW90: code 7 changes with Steam on/off.
   - name: steam_function
-    id: "32"
+    id: "7"
     mappings:
       - haier: "0"
         value: "Нет"
       - haier: "1"
         value: "Да"
+  # Delayed start: code 15 is enabled flag; codes 32/33 are the display time.
+  # If delayed start is enabled, 32/33 are delayed-start time; otherwise they are
+  # the selected/current program time.
+  - name: delayed_start_enabled
+    id: "15"
+    mappings:
+      - haier: "0"
+        value: "Выключено"
+      - haier: "1"
+        value: "Включено"
+  - name: delayed_start_hours
+    id: "32"
+  - name: anti_crease
+    id: "59"
+    mappings:
+      - haier: "0"
+        value: "Выключено"
+      - haier: "1"
+        value: "Включено"
   # Confirmed/likely user-facing values.
   - name: program_progress
     id: "37"
+  # Named diagnostic WM values. Enabled by default for observation; values are intentionally raw.
+  - name: raw_22
+    id: "22"
+  - name: raw_51
+    id: "51"
+  - name: raw_62
+    id: "62"
   # Diagnostic raw values. Disabled by default in HA; useful for decoding other WM models.
   - name: raw_34
     id: "34"
