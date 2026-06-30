@@ -18,6 +18,7 @@ PROGRAM_NAMES: dict[str, str] = {
 # code 71, which represents the current/running cloud program.
 PANEL_PROGRAM_NAMES: dict[str, str] = {
     "1": "Пуховые вещи",
+    "2": "Смешанная стирка",
     "3": "Очистка барабана",
     "4": "Быстрая 15'",
     "6": "Отжим",
@@ -28,6 +29,7 @@ PANEL_PROGRAM_NAMES: dict[str, str] = {
     "15": "Деликатная",
     "17": "Шерсть",
     "21": "Спортивная",
+    "23": "Ежедневная",
     "49": "Гигиена",
     "56": "Авто",
     "71": "Освежить",
