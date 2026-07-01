@@ -36,8 +36,9 @@ https://github.com/and7ey/haier_evo
 
 Интеграция протестирована на:
 
-* **Haier HW70-BP12337U1**
-* **Haier HW60-BP12929ASE**
+* **Haier HW80-B14979**
+* **Haier HW70-BP12337**
+* **Haier HW60-BP12929**
 
 Работа с другими моделями возможна, но требует проверки.
 
