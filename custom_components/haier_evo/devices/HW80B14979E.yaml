@@ -48,7 +48,7 @@ attributes:
       - haier: "11"
         value: "Программа 11"
       - haier: "13"
-        value: "Спортивная"
+        value: "Программа 12"
       - haier: "14"
         value: "Программа 14"
       - haier: "15"
@@ -359,7 +359,7 @@ attributes:
   # Named diagnostic WM values. Enabled by default for observation; values are intentionally raw.
   - name: raw_22
     id: "22"
-  - name: raw_51
+  - name: i_time
     id: "51"
   - name: raw_62
     id: "62"
@@ -370,7 +370,7 @@ attributes:
     id: "61"
   - name: raw_68
     id: "68"
-  # 18 is the real changing stage code.  90 stays at 1 on HW70-BP12337U1.
+  # 18 is the real changing stage code.
   - name: phase
     id: "18"
     mappings:
@@ -408,8 +408,6 @@ attributes:
         value: "Ожидает выгрузки белья"
   - name: phase_code
     id: "18"
-  - name: legacy_phase_code
-    id: "90"
   - name: door_lock
     id: "21"
     mappings:

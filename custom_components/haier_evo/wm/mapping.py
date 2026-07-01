@@ -17,6 +17,7 @@ PROGRAM_NAMES: dict[str, str] = {
 # It updates while turning the selector and is intentionally kept separate from
 # code 71, which represents the current/running cloud program.
 PANEL_PROGRAM_NAMES: dict[str, str] = {
+    "0": "Выключено",
     "1": "Пуховые вещи",
     "2": "Смешанная стирка",
     "3": "Очистка барабана",
@@ -85,7 +86,7 @@ PHASE_NAMES: dict[str, str] = {
     "17": "Полоскание",
     "18": "Полоскание",
     "19": "Отложенный старт",
-    "20": "Проворачивание",
+    "20": "Использование пара",
     "24": "Освежение",
     "25": "Стирка",
     "26": "Нагрев",
@@ -134,6 +135,7 @@ DIRT_LEVEL_NAMES: dict[str, str] = {
     "1": "Низкий",
     "2": "Средний",
     "3": "Высокий",
+    "132": "Авто",
 }
 
 STEAM_FUNCTION_NAMES: dict[str, str] = {
@@ -150,30 +152,51 @@ ON_OFF_NAMES: dict[str, str] = {
     "true": "Включено",
 }
 
+SOUND_NOTIFICATION_NAMES: dict[str, str] = {
+    # On HW70-BP12337U1 this flag is inverted: 0 = sound enabled, 1 = muted.
+    "0": "Включено",
+    "1": "Выключено",
+    "false": "Включено",
+    "true": "Выключено",
+}
+
+STANDBY_MODE_NAMES: dict[str, str] = {
+    # Confirmed on HW70-BP12337U1: 0 = standby/sleep mode enabled, 1 = panel active.
+    "0": "Включено",
+    "1": "Выключено",
+    "false": "Включено",
+    "true": "Выключено",
+}
+
 CODE_TO_FIELD: dict[str, str] = {
-    "67": "status",
-    "71": "program",
-    "50": "temperature",
-    "63": "spin_speed",
-    "33": "program_remaining_time",
-    "51": "cycle_remaining_time",
-    "40": "energy",
-    "38": "power",
-    "39": "water_raw",
     "0": "selected_program",
     "7": "steam_function",
+    "9": "sound_notification",
+    "14": "child_lock",
     "15": "delayed_start_enabled",
+    "18": "phase",
+    "21": "door_lock",
+    "24": "remote_control",
+    "25": "standby_mode",
     "32": "delayed_start_hours",
-    "59": "anti_crease",
+    "33": "program_remaining_time",
     "34": "raw_34",
+    "35": "drum_clean_wash_count",
+    "36": "total_wash_count",
     "37": "program_progress",
+    "38": "power",
+    "39": "water_raw",
+    "40": "energy",
     "46": "rinse_count",
     "47": "dirt_level",
+    "50": "temperature",
+    "51": "i_time",
+    "59": "anti_crease",
     "61": "raw_61",
+    "63": "spin_speed",
+    "67": "status",
     "68": "raw_68",
-    "18": "phase",
-    "90": "legacy_phase_code",
-    "21": "door_lock",
+    "71": "program",
 }
 
 NUMERIC_FIELDS: set[str] = {
@@ -181,7 +204,7 @@ NUMERIC_FIELDS: set[str] = {
     "spin_speed",
     "program_remaining_time",
     "delayed_start_hours",
-    "cycle_remaining_time",
+    "i_time",
     "program_duration",
     "remaining_time",
     "energy",
@@ -189,6 +212,8 @@ NUMERIC_FIELDS: set[str] = {
     "water_raw",
     "raw_31",
     "raw_34",
+    "drum_clean_wash_count",
+    "total_wash_count",
     "raw_35",
     "raw_36",
     "raw_95",
@@ -205,7 +230,7 @@ NUMERIC_FIELDS: set[str] = {
     "raw_205",
 }
 
-TEXT_FIELDS: set[str] = {"status", "program", "selected_program", "phase", "door_lock", "dirt_level", "steam_function", "delayed_start_enabled", "anti_crease"}
+TEXT_FIELDS: set[str] = {"status", "program", "selected_program", "phase", "door_lock", "dirt_level", "steam_function", "delayed_start_enabled", "child_lock", "sound_notification", "remote_control", "standby_mode", "anti_crease"}
 
 
 def clean_value(value):
@@ -234,7 +259,7 @@ def program_name_from_code(value):
     if value is None:
         return None
     key = str(value)
-    return PROGRAM_NAMES.get(key) or display_program_value(f"program_{key}")
+    return PROGRAM_NAMES.get(key) or PANEL_PROGRAM_NAMES.get(key) or display_program_value(f"program_{key}")
 
 
 
@@ -288,7 +313,11 @@ def map_value(name: str, value):
         return f"Особый ({text})" if text not in (None, "None") else None
     if name == "steam_function":
         return STEAM_FUNCTION_NAMES.get(text, value)
-    if name in ("delayed_start_enabled", "anti_crease"):
+    if name == "sound_notification":
+        return SOUND_NOTIFICATION_NAMES.get(text, value)
+    if name == "standby_mode":
+        return STANDBY_MODE_NAMES.get(text, value)
+    if name in ("delayed_start_enabled", "child_lock", "remote_control", "anti_crease"):
         return ON_OFF_NAMES.get(text, value)
     return value
 

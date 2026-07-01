@@ -107,14 +107,14 @@ class HaierWMProgramRemainingTimeSensor(HaierSensor):
         self._attr_native_unit_of_measurement = "мин"
 
 
-class HaierWMCycleRemainingTimeSensor(HaierSensor):
+class HaierWMITimeSensor(HaierSensor):
 
     def __init__(self, device: api.HaierWM):
         super().__init__(device)
-        self._device_attr_name = "cycle_remaining_time"
-        self._attr_unique_id = f"{device.device_id}_{device.device_model}_cycle_remaining_time"
-        self._attr_name = f"{device.device_name} Оставшееся время этапа"
-        self._attr_icon = "mdi:timer-sand"
+        self._device_attr_name = "i_time"
+        self._attr_unique_id = f"{device.device_id}_{device.device_model}_i_time"
+        self._attr_name = f"{device.device_name} i-Time"
+        self._attr_icon = "mdi:timer-plus-outline"
         self._attr_native_unit_of_measurement = "мин"
 
 
@@ -138,12 +138,13 @@ class HaierWMProgramDurationSensor(HaierSensor):
 
 
 class HaierWMProgramSummarySensor(HaierSensor):
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, device: api.HaierWM):
         super().__init__(device)
         self._device_attr_name = "program_summary"
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_program_summary"
-        self._attr_name = f"{device.device_name} Описание программы"
+        self._attr_name = f"{device.device_name} Описание"
         self._attr_icon = "mdi:format-list-bulleted"
 
 
@@ -239,7 +240,6 @@ class HaierWMPowerSensor(HaierSensor):
 class HaierWMWaterConsumptionSensor(HaierSensor):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_suggested_display_precision = 2
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, device: api.HaierWM):
         super().__init__(device)
@@ -253,6 +253,37 @@ class HaierWMWaterConsumptionSensor(HaierSensor):
 
 # Backward-compatible class name for old references.
 HaierWMWaterRawSensor = HaierWMWaterConsumptionSensor
+
+
+class HaierWMDrumCleanWashCountSensor(HaierSensor):
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_suggested_display_precision = 0
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, device: api.HaierWM):
+        super().__init__(device)
+        self._device_attr_name = "drum_clean_wash_count"
+        # Keep old unique_id so the existing entity is renamed instead of duplicated.
+        self._attr_unique_id = f"{device.device_id}_{device.device_model}_wash_count"
+        self._attr_name = f"{device.device_name} Стирок после очистки барабана"
+        self._attr_icon = "mdi:counter"
+
+
+# Backward-compatible class name for old references.
+HaierWMWashCountSensor = HaierWMDrumCleanWashCountSensor
+
+
+class HaierWMTotalWashCountSensor(HaierSensor):
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_suggested_display_precision = 0
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, device: api.HaierWM):
+        super().__init__(device)
+        self._device_attr_name = "total_wash_count"
+        self._attr_unique_id = f"{device.device_id}_{device.device_model}_total_wash_count"
+        self._attr_name = f"{device.device_name} Общее количество стирок"
+        self._attr_icon = "mdi:counter"
 
 
 class HaierWMProgramProgressSensor(HaierSensor):
@@ -276,7 +307,7 @@ class HaierWMRinseCountSensor(HaierSensor):
         super().__init__(device)
         self._device_attr_name = "rinse_count"
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_rinse_count"
-        self._attr_name = f"{device.device_name} Полосканий осталось"
+        self._attr_name = f"{device.device_name} Осталось полосканий"
         self._attr_icon = "mdi:waves"
 
 
@@ -322,6 +353,7 @@ class HaierWMPhaseSensor(HaierWMStatusSensor):
 
 
 class HaierWMPhaseCodeSensor(HaierSensor):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_entity_registry_enabled_default = False
 
     def __init__(self, device: api.HaierWM):
@@ -330,15 +362,3 @@ class HaierWMPhaseCodeSensor(HaierSensor):
         self._attr_unique_id = f"{device.device_id}_{device.device_model}_phase_code"
         self._attr_name = f"{device.device_name} Код этапа"
         self._attr_icon = "mdi:code-json"
-
-
-class HaierWMLegacyPhaseCodeSensor(HaierSensor):
-    _attr_entity_registry_enabled_default = False
-
-    def __init__(self, device: api.HaierWM):
-        super().__init__(device)
-        self._device_attr_name = "legacy_phase_code"
-        self._attr_unique_id = f"{device.device_id}_{device.device_model}_legacy_phase_code"
-        self._attr_name = f"{device.device_name} Код этапа 90"
-        self._attr_icon = "mdi:history"
-

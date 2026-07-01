@@ -219,7 +219,7 @@ class HaierWMConfig(HaierDeviceConfig):
             f"temperature={self['temperature']!r},"
             f"spin_speed={self['spin_speed']!r},"
             f"program_remaining_time={self['program_remaining_time']!r},"
-            f"cycle_remaining_time={self['cycle_remaining_time']!r}"
+            f"i_time={self['i_time']!r}"
             f")"
         )
 
@@ -265,7 +265,7 @@ class Attribute(dict):
             "Скорость отжима": "spin_speed",
             "Оставшееся время": "remaining_time",
             "Оставшееся время программы": "program_remaining_time",
-            "Оставшееся время этапа": "cycle_remaining_time",
+            "i-Time": "i_time",
         }.get(data.get("attrname", self.description), data.get("attrname") or "unknown")
 
     def __repr__(self) -> str:

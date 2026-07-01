@@ -117,6 +117,62 @@ class HaierWMDelayedStartBinarySensor(HaierWMBinarySensor):
         self._attr_icon = "mdi:clock-start"
 
 
+class HaierWMSoundNotificationBinarySensor(HaierWMBinarySensor):
+
+    def __init__(self, device: api.HaierWM) -> None:
+        super().__init__(device)
+        self._device_attr_name = "sound_notification"
+        self._attr_unique_id = f"{device.device_id}_{device.device_model}_sound_notification_binary"
+        self._attr_name = f"{device.device_name} Звуковое оповещение"
+        self._attr_icon = "mdi:volume-high"
+
+    @property
+    def is_on(self) -> bool | None:
+        value = getattr(self._device, self._device_attr_name, None)
+        if value in (None, "None", "unknown"):
+            return None
+        # Confirmed on HW70-BP12337U1: raw 0 means sound is enabled, raw 1 means muted.
+        return str(value) in ("0", "Включено", "Да", "false", "False")
+
+
+class HaierWMRemoteControlBinarySensor(HaierWMBinarySensor):
+
+    def __init__(self, device: api.HaierWM) -> None:
+        super().__init__(device)
+        self._device_attr_name = "remote_control"
+        self._attr_unique_id = f"{device.device_id}_{device.device_model}_remote_control_binary"
+        self._attr_name = f"{device.device_name} Удалённое управление"
+        self._attr_icon = "mdi:remote"
+
+
+class HaierWMStandbyModeBinarySensor(HaierWMBinarySensor):
+
+    def __init__(self, device: api.HaierWM) -> None:
+        super().__init__(device)
+        self._device_attr_name = "standby_mode"
+        self._attr_unique_id = f"{device.device_id}_{device.device_model}_standby_mode_binary"
+        self._attr_name = f"{device.device_name} Режим ожидания"
+        self._attr_icon = "mdi:power-sleep"
+
+    @property
+    def is_on(self) -> bool | None:
+        value = getattr(self._device, self._device_attr_name, None)
+        if value in (None, "None", "unknown"):
+            return None
+        # Confirmed on HW70-BP12337U1: raw 0 means standby mode is enabled, raw 1 means disabled.
+        return str(value) in ("0", "Включено", "Да", "false", "False")
+
+
+class HaierWMChildLockBinarySensor(HaierWMBinarySensor):
+
+    def __init__(self, device: api.HaierWM) -> None:
+        super().__init__(device)
+        self._device_attr_name = "child_lock"
+        self._attr_unique_id = f"{device.device_id}_{device.device_model}_child_lock_binary"
+        self._attr_name = f"{device.device_name} Детский замок"
+        self._attr_icon = "mdi:account-lock"
+
+
 class HaierWMDoorLockBinarySensor(HaierWMBinarySensor):
     _attr_device_class = BinarySensorDeviceClass.LOCK
 

@@ -1474,21 +1474,31 @@ class HaierWM(HaierDevice):
         self.program_code = None
         self.program_title = None
         self.selected_program = None
+        self.selected_program_code = None
+        self._last_program_display = None
+        self._last_selected_program_display = None
         self.temperature = None
         self.spin_speed = None
         # Backward-compatible aggregate; program_remaining_time is the total program
-        # countdown, cycle_remaining_time is the current washer stage countdown.
+        # countdown, i_time is the i-Time value from code 51.
         self.remaining_time = None
         self.program_remaining_time = None
-        self.cycle_remaining_time = None
+        self.i_time = None
         self.program_duration = None
-        # Program time shown before delayed start is enabled. When delay is active,
-        # codes 32+33 switch to the delay timer, so keep the last non-delay
-        # program duration and add the delay to it for the user-facing duration.
+        # Fixed duration for the currently selected/started program. Codes 32+33
+        # are the washer display time: before start they show calculated duration,
+        # after start they become the countdown. Keep program_duration fixed once
+        # the washer enters an active phase; program_remaining_time continues to
+        # follow the live countdown.
         self._base_program_duration_minutes = None
+        self._program_duration_locked = False
         self.program_time_hours = None
         self.program_time_minutes = None
         self.program_summary = None
+        # Keep the program description stable while a wash cycle is running.
+        # Timers can update every minute, but the description sensor should not
+        # change on each countdown tick.
+        self._frozen_program_summary = None
         self.energy = None
         self.power = None
         # Code 39 is exposed as diagnostic "Расход воды" in liters while
@@ -1497,7 +1507,12 @@ class HaierWM(HaierDevice):
         self.raw_31 = None
         self.raw_33 = None
         self.raw_34 = None
+        self.raw_25 = None
         self.raw_35 = None
+        self.drum_clean_wash_count = None
+        self.total_wash_count = None
+        # Backward-compatible alias for older code/exports.
+        self.wash_count = None
         self.raw_36 = None
         self.raw_95 = None
         self.raw_195 = 0
@@ -1506,11 +1521,16 @@ class HaierWM(HaierDevice):
         self.dirt_level = None
         self.steam_function = None
         self.delayed_start_enabled = None
+        self.child_lock = None
+        self.sound_notification = None
+        self.remote_control = None
+        self.standby_mode = None
         self.delayed_start_hours = None
         self.delayed_start_minutes = None
         self.anti_crease = None
         self.raw_46 = None
         self.raw_47 = None
+        self.raw_51 = None
         self.raw_61 = None
         self.raw_68 = None
         self.raw_88 = None
@@ -1521,7 +1541,6 @@ class HaierWM(HaierDevice):
         self.raw_205 = None
         self.phase = None
         self.phase_code = None
-        self.legacy_phase_code = None
         self.door_lock = None
         # Code 31 is the physical door open/closed flag on HW70/HW90.
         self.door_open = None
@@ -1540,11 +1559,12 @@ class HaierWM(HaierDevice):
             "program_code": self.program_code,
             "program_title": self.program_title,
             "selected_program": self.selected_program,
+            "selected_program_code": self.selected_program_code,
             "temperature": self.temperature,
             "spin_speed": self.spin_speed,
             "remaining_time": self.remaining_time,
             "program_remaining_time": self.program_remaining_time,
-            "cycle_remaining_time": self.cycle_remaining_time,
+            "i_time": self.i_time,
             "program_duration": self.program_duration,
             "program_time_hours": self.program_time_hours,
             "program_time_minutes": self.program_time_minutes,
@@ -1555,7 +1575,11 @@ class HaierWM(HaierDevice):
             "raw_31": self.raw_31,
             "raw_33": self.raw_33,
             "raw_34": self.raw_34,
+            "raw_25": self.raw_25,
             "raw_35": self.raw_35,
+            "drum_clean_wash_count": self.drum_clean_wash_count,
+            "total_wash_count": self.total_wash_count,
+            "wash_count": self.wash_count,
             "raw_36": self.raw_36,
             "raw_95": self.raw_95,
             "raw_195": self.raw_195,
@@ -1564,11 +1588,16 @@ class HaierWM(HaierDevice):
             "dirt_level": self.dirt_level,
             "steam_function": self.steam_function,
             "delayed_start_enabled": self.delayed_start_enabled,
+            "child_lock": self.child_lock,
+            "sound_notification": self.sound_notification,
+            "remote_control": self.remote_control,
+            "standby_mode": self.standby_mode,
             "delayed_start_hours": self.delayed_start_hours,
             "delayed_start_minutes": self.delayed_start_minutes,
             "anti_crease": self.anti_crease,
             "raw_46": self.raw_46,
             "raw_47": self.raw_47,
+            "raw_51": self.raw_51,
             "raw_61": self.raw_61,
             "raw_68": self.raw_68,
             "raw_88": self.raw_88,
@@ -1579,7 +1608,6 @@ class HaierWM(HaierDevice):
             "raw_205": self.raw_205,
             "phase": self.phase,
             "phase_code": self.phase_code,
-            "legacy_phase_code": self.legacy_phase_code,
             "door_lock": self.door_lock,
             "door_open": self.door_open,
         })
@@ -1666,7 +1694,7 @@ class HaierWM(HaierDevice):
         model profile for every code shift.
         """
         # Stable/common codes seen on WM_BASE models.
-        for code, name in (("0", "selected_program"), ("18", "phase"), ("90", "legacy_phase_code"), ("21", "door_lock"), ("38", "power"), ("40", "energy"), ("39", "water_raw")):
+        for code, name in (("0", "selected_program"), ("9", "sound_notification"), ("14", "child_lock"), ("18", "phase"), ("21", "door_lock"), ("24", "remote_control"), ("25", "standby_mode"), ("35", "drum_clean_wash_count"), ("36", "total_wash_count"), ("38", "power"), ("40", "energy"), ("39", "water_raw")):
             self._rename_raw_attr(code, name)
 
         # Time shown on the washer display is split into hours (code 32) and
@@ -1756,14 +1784,33 @@ class HaierWM(HaierDevice):
             value = self.delayed_start_enabled
         return str(value) in ("0", "Выключено", "Нет", "false", "False")
 
-    def _refresh_program_time(self) -> None:
-        """Refresh program duration from split display time.
+    def _is_standby_mode_enabled(self) -> bool:
+        return str(self.standby_mode) in ("0", "Включено", "Да", "true", "True")
 
-        Codes 32+33 are the time shown on the washer display. When delayed
-        start is enabled, the washer shows the delay timer there, not the real
-        program duration.  To avoid confusing Home Assistant users, we no
-        longer expose delay time as a normal sensor and we do not overwrite
-        program duration while delayed start is active.
+    def _is_off_program_selected(self) -> bool:
+        """Return True when the washer selector/program is explicitly in Off mode.
+
+        Off must have priority over standby: on these washers code 25 can still
+        report standby/sleep while the physical selector code 0 is "Выключено".
+        Also handle stale Home Assistant program-select calls, where "Выключено"
+        is set through the old program entity instead of arriving from code 0.
+        """
+        off_values = ("0", "Выключено", "Выключен", "Выключена", "off", "Off", "OFF")
+        return (
+            str(self.selected_program_code) == "0"
+            or str(self.program_code) == "0"
+            or str(self.selected_program) in off_values
+            or str(self.program) in off_values
+            or str(self._last_selected_program_display) in off_values
+            or str(self._last_program_display) in off_values
+        )
+
+    def _refresh_program_time(self) -> None:
+        """Refresh program time directly from display fields 32/33.
+
+        Codes 32 and 33 are exposed as the washer display time, exactly like the
+        original integration behavior. Delayed-start filtering/caching is not
+        applied here.
         """
         hours = self._as_number(self.program_time_hours)
         minutes = self._as_number(self.program_time_minutes)
@@ -1773,23 +1820,42 @@ class HaierWM(HaierDevice):
             minutes = self._as_number(self.delayed_start_minutes) or 0
 
         display_minutes = int(hours * 60 + minutes)
+        self.program_remaining_time = display_minutes
+        self.remaining_time = self.program_remaining_time
 
-        if self._is_delay_enabled_value():
-            # Display time is the delay timer. Keep the last known program
-            # duration and do not expose delay duration as a separate sensor.
-            return
-
-        if self._is_delay_disabled_value() or self.delayed_start_enabled is None:
+        if self._is_active_phase():
+            if not self._program_duration_locked:
+                if self.program_duration in (None, "None", "unknown"):
+                    self.program_duration = display_minutes
+                self._base_program_duration_minutes = self.program_duration
+                self._program_duration_locked = True
+        else:
+            self._program_duration_locked = False
             self._base_program_duration_minutes = display_minutes
             self.program_duration = display_minutes
-            self.program_remaining_time = display_minutes
-            self.remaining_time = self.program_remaining_time
 
     def _refresh_delayed_start_time(self) -> None:
         self._refresh_program_time()
 
 
     def _refresh_program_summary(self) -> None:
+        if self._is_off_program_selected():
+            self._frozen_program_summary = None
+            self.program_summary = "Выключено"
+            return
+
+        # During an active wash cycle keep the description unchanged. Codes 32/33
+        # may change every minute, and without this guard Home Assistant records a
+        # new state for the description on every countdown update.
+        if self._is_active_phase() and self._frozen_program_summary not in (None, "", "None", "unknown"):
+            self.program_summary = self._frozen_program_summary
+            return
+
+        if self._is_standby_mode_enabled():
+            self._frozen_program_summary = None
+            self.program_summary = "Режим ожидания"
+            return
+
         parts = []
         program = self.selected_program or self.program
         if program not in (None, "None", "unknown"):
@@ -1825,18 +1891,37 @@ class HaierWM(HaierDevice):
             parts.append("Антисминание")
         if self.rinse_count not in (None, "None", "unknown"):
             parts.append(f"Полоскания: {self.rinse_count}")
-        self.program_summary = " • ".join(parts) if parts else None
+        summary = " • ".join(parts) if parts else None
+        self.program_summary = summary
+        if self._is_active_phase() and summary not in (None, "", "None", "unknown"):
+            self._frozen_program_summary = summary
 
     def _refresh_derived_wm_state(self) -> None:
+        if not self._is_active_phase():
+            self._frozen_program_summary = None
+        elif self._frozen_program_summary in (None, "", "None", "unknown") and self.program_summary not in (None, "", "None", "unknown", "Режим ожидания", "Выключено"):
+            self._frozen_program_summary = self.program_summary
+
         self._refresh_program_summary()
+        if self._is_off_program_selected():
+            self.status = "Выключено"
+            self.program = "Выключено"
+            self.selected_program = "Выключено"
+            self.program_summary = "Выключено"
+            self.phase = "Нет"
+            self._program_duration_locked = False
+            self.program_remaining_time = 0
+            self.remaining_time = 0
+            self.power = 0
+            return
         # Haier RU sometimes reports code 67 as 1 ("Ожидание") while the
         # washer is clearly running.  Code 18 is a more reliable source.
         status_text = str(self.status) if self.status is not None else None
         finished_by_status = status_text in ("Завершено", "FINISHED", "COMPLETED")
         if self._is_finished_phase() or finished_by_status:
+            self._frozen_program_summary = None
             self.status = "Завершено"
             self.program_remaining_time = 0
-            self.cycle_remaining_time = 0
             self.remaining_time = 0
             self.power = 0
             # Status says the cycle is complete. The phase should explain what
@@ -1849,7 +1934,7 @@ class HaierWM(HaierDevice):
 
         if self._is_active_phase():
             self.status = "Выполняется"
-            # Keep the stage timer independent. Codes 32+33 are the washer display
+            # Keep the i-Time value independent. Codes 32+33 are the washer display
             # time and are already combined into program_duration/program_remaining_time.
             # Code 51 stays experimental for the current stage/i-Time observation.
         else:
@@ -1859,7 +1944,7 @@ class HaierWM(HaierDevice):
             if self.phase_code == 0:
                 self.status = "Ожидание"
                 self.phase = "Нет"
-                self.cycle_remaining_time = 0
+                self._program_duration_locked = False
                 self.program_remaining_time = 0
                 self.power = 0
 
@@ -1872,6 +1957,24 @@ class HaierWM(HaierDevice):
             return
 
         code = str(code)
+
+        # i-Time on HW70/HW90 is raw property code 51. The Evo payload may also
+        # contain a second named attribute (i_time) with the same code and
+        # current=None, so handle the raw code directly before normal duplicate
+        # attribute mapping. This mirrors how 32/33 are stored from their raw
+        # values, but keeps i-Time independent from program time.
+        if code == "51":
+            number = self._as_number(value)
+            if number is not None:
+                self.raw_51 = number
+                self.i_time = number
+                self._refresh_derived_wm_state()
+                _LOGGER.debug(
+                    "%s: WM attr code=%s name=i_time raw=%r stored=%r",
+                    self.device_name, code, raw_value, self.i_time
+                )
+            return
+
         attr = self._get_named_attr_by_code(code)
         name = (attr.name if attr and attr.name != "unknown" else None) or self._fallback_name_by_code(code)
         # Code 195 was previously treated as selected-cycle duration, but HW70
@@ -1893,49 +1996,65 @@ class HaierWM(HaierDevice):
         display = self._map_wm_value(name, value if name in WM.TEXT_FIELDS else mapped)
 
         if name == "status":
-            self.status = display
+            self.status = "Выключено" if self._is_off_program_selected() else display
         elif name == "program":
-            self.program = self.program_title or display
+            program_display = self.program_title or display
+            self._last_program_display = program_display
+            if self._is_off_program_selected() or str(program_display) in ("0", "Выключено", "Выключен", "Выключена", "off", "Off", "OFF"):
+                self.program = "Выключено"
+                self.status = "Выключено"
+                self.program_summary = "Выключено"
+            else:
+                self.program = "Режим ожидания" if self._is_standby_mode_enabled() else program_display
         elif name == "selected_program":
-            self.selected_program = display
+            self.selected_program_code = str(value)
+            self._last_selected_program_display = display
+            if self._is_off_program_selected() or str(display) in ("0", "Выключено", "Выключен", "Выключена", "off", "Off", "OFF"):
+                self.selected_program = "Выключено"
+                self.program = "Выключено"
+                self.status = "Выключено"
+                self.program_summary = "Выключено"
+            else:
+                self.selected_program = "Режим ожидания" if self._is_standby_mode_enabled() else display
         elif name == "temperature":
             self.temperature = self._as_number(numeric_value)
         elif name == "spin_speed":
             self.spin_speed = self._as_number(numeric_value)
-        elif name in ("remaining_time", "program_remaining_time", "cycle_remaining_time", "delayed_start_hours", "program_duration"):
+        elif name in ("remaining_time", "program_remaining_time", "i_time", "delayed_start_hours", "program_duration"):
             number = self._as_number(numeric_value)
             if number is not None:
                 if name == "delayed_start_hours" or code == "32":
-                    # Code 32 is the hour part of the washer display time.
                     self.delayed_start_hours = number
                     self.program_time_hours = number
                     self._refresh_program_time()
                 elif code == "33" or name == "program_remaining_time":
-                    # Code 33 is the minute part of the washer display time.
                     self.raw_33 = number
                     self.delayed_start_minutes = number
                     self.program_time_minutes = number
                     self._refresh_program_time()
                 elif name == "program_duration":
-                    # Do not trust standalone duration codes here; real duration
-                    # is calculated from split display time 32+33.
                     self.program_duration = number
-                elif code == "51" or name == "cycle_remaining_time":
-                    # Experimental i-Time/stage timer. Keep it independent so we can
-                    # continue observing it without corrupting the total timer.
-                    if not (code == "51" and number == 0 and self._is_active_phase()):
-                        self.cycle_remaining_time = number
+                elif code == "51" or name == "i_time":
+                    # ID 51 is i-Time. The Evo payload often contains two attributes
+                    # with code 51: raw/unknown with the current value and named
+                    # i_time with current=None. Always keep the numeric value from
+                    # the raw code here and do not overwrite it from derived state.
+                    self.i_time = number
                 else:
                     self.remaining_time = number
 
-                # Backward-compatible aggregate follows the confirmed total timer.
-                self.remaining_time = self.program_remaining_time
         elif name == "energy":
             self.energy = self._as_number(numeric_value)
         elif name == "power":
             self.power = self._as_number(numeric_value)
         elif name == "water_raw":
-            self.water_raw = self._as_number(numeric_value)
+            water = self._as_number(numeric_value)
+            self.water_raw = water * 100 if water is not None else None
+        elif name in ("drum_clean_wash_count", "wash_count"):
+            self.drum_clean_wash_count = self._as_number(numeric_value)
+            self.wash_count = self.drum_clean_wash_count
+        elif name == "total_wash_count":
+            self.total_wash_count = self._as_number(numeric_value)
         elif name == "program_progress":
             self.program_progress = self._as_number(numeric_value)
         elif name == "rinse_count":
@@ -1948,9 +2067,29 @@ class HaierWM(HaierDevice):
             new_raw_15 = self._as_number(numeric_value)
             self.delayed_start_enabled = display
             self.raw_15 = new_raw_15
-            if not self._is_delay_enabled_value():
-                # Delay is off again: codes 32+33 can be trusted as program time.
-                self._refresh_program_time()
+        elif name == "child_lock":
+            self.child_lock = display
+            self.raw_14 = self._as_number(numeric_value)
+        elif name == "sound_notification":
+            self.sound_notification = display
+            self.raw_9 = self._as_number(numeric_value)
+        elif name == "remote_control":
+            self.remote_control = display
+            self.raw_24 = self._as_number(numeric_value)
+        elif name == "standby_mode":
+            self.standby_mode = display
+            self.raw_25 = self._as_number(numeric_value)
+            if self._is_off_program_selected():
+                self.program = "Выключено"
+                self.selected_program = "Выключено"
+            elif self._is_standby_mode_enabled():
+                self.program = "Режим ожидания"
+                self.selected_program = "Режим ожидания"
+            else:
+                if self._last_program_display not in (None, "None", "unknown"):
+                    self.program = self._last_program_display
+                if self._last_selected_program_display not in (None, "None", "unknown"):
+                    self.selected_program = self._last_selected_program_display
         elif name == "anti_crease":
             self.anti_crease = display
             self.raw_59 = self._as_number(numeric_value)
@@ -1965,10 +2104,12 @@ class HaierWM(HaierDevice):
                 self.door_open = raw_number
 
         elif name == "phase":
-            self.phase_code = self._as_number(value)
-            self.phase = display
-        elif name == "legacy_phase_code":
-            self.legacy_phase_code = self._as_number(value)
+            phase_number = self._as_number(value)
+            self.phase_code = phase_number
+            if phase_number is not None:
+                self.phase = WM.map_value("phase", str(int(phase_number)))
+            else:
+                self.phase = display
         elif name == "door_lock":
             self.door_lock = display
 
@@ -2033,9 +2174,25 @@ class HaierWM(HaierDevice):
 
     def set_program(self, value: str) -> None:
         config_value = self._program_display_to_config_value(value)
+        display_value = self._display_program_value(config_value)
         if commands := self.get_commands("program", config_value):
             self._send_single_command(commands[0])
-            self.program = self._display_program_value(config_value)
+            self.program_code = str(config_value)
+            self.program = display_value
+            self._last_program_display = display_value
+            if str(config_value) == "0" or str(display_value) in ("0", "Выключено", "Выключен", "Выключена", "off", "Off", "OFF"):
+                # The old program select can still exist in HA until entities are reloaded.
+                # Treat selecting Off there exactly like physical selector code 0.
+                self.selected_program_code = "0"
+                self.selected_program = "Выключено"
+                self.program = "Выключено"
+                self.status = "Выключено"
+                self.program_summary = "Выключено"
+                self.phase = "Нет"
+                self._program_duration_locked = False
+                self.program_remaining_time = 0
+                self.remaining_time = 0
+                self.power = 0
 
     def set_temperature(self, value: str) -> None:
         config_value = "cold" if str(value) == "Холодная" else value
@@ -2051,8 +2208,9 @@ class HaierWM(HaierDevice):
     def create_entities_select(self) -> list:
         from . import select
         entities = []
-        if self.config['program'] is not None:
-            entities.append(select.HaierWMProgramSelect(self))
+        # Program select is intentionally not exposed: changing programs through
+        # this entity is unreliable on these washers, while sensors still show
+        # the selected/current program.
         if self.config['temperature'] is not None:
             entities.append(select.HaierWMTemperatureSelect(self))
         if self.config['spin_speed'] is not None:
@@ -2095,8 +2253,8 @@ class HaierWM(HaierDevice):
         # one field, expose that field even when other mappings are missing.
         if self._wm_sensor_available('program_remaining_time') or self._wm_sensor_available('remaining_time'):
             entities.append(sensor.HaierWMProgramRemainingTimeSensor(self))
-        if self._wm_sensor_available('cycle_remaining_time') or self._wm_sensor_available('remaining_time'):
-            entities.append(sensor.HaierWMCycleRemainingTimeSensor(self))
+        if self._wm_sensor_available('i_time') or self._get_named_attr_by_code('51') is not None:
+            entities.append(sensor.HaierWMITimeSensor(self))
         if self._wm_sensor_available('program_duration'):
             entities.append(sensor.HaierWMProgramDurationSensor(self))
         if self._wm_sensor_available('program_summary') or self._wm_sensor_available('selected_program'):
@@ -2119,13 +2277,16 @@ class HaierWM(HaierDevice):
             entities.append(sensor.HaierWMWaterConsumptionSensor(self))
         if self._wm_sensor_available('program_progress'):
             entities.append(sensor.HaierWMProgramProgressSensor(self))
+        if self._wm_sensor_available('drum_clean_wash_count') or self._wm_sensor_available('wash_count'):
+            entities.append(sensor.HaierWMDrumCleanWashCountSensor(self))
+        if self._wm_sensor_available('total_wash_count'):
+            entities.append(sensor.HaierWMTotalWashCountSensor(self))
         if self._wm_sensor_available('rinse_count'):
             entities.append(sensor.HaierWMRinseCountSensor(self))
         if self._wm_sensor_available('dirt_level'):
             entities.append(sensor.HaierWMDirtLevelSensor(self))
         named_diag = {
             "raw_22": ("WM Диагностика: Код 22", "mdi:remote"),
-            "raw_51": ("WM Диагностика: i-Time", "mdi:timer-plus-outline"),
             "raw_62": ("WM Диагностика: Код состояния 62", "mdi:information-outline"),
         }
         # Keep only unknown/experimental raw values in diagnostics.
@@ -2133,8 +2294,6 @@ class HaierWM(HaierDevice):
         # not exposed as duplicate WM raw entities.
         for raw_attr, raw_title in (
             ("raw_34", "WM Диагностика: Код 34"),
-            ("raw_35", "WM Диагностика: Код 35"),
-            ("raw_36", "WM Диагностика: Код 36"),
             ("raw_61", "WM Диагностика: Код 61"),
             ("raw_68", "WM Диагностика: Код 68"),
             ("raw_88", "WM Диагностика: Код 88"),
@@ -2155,8 +2314,6 @@ class HaierWM(HaierDevice):
             entities.append(sensor.HaierWMPhaseSensor(self))
         if self._wm_sensor_available('phase_code'):
             entities.append(sensor.HaierWMPhaseCodeSensor(self))
-        if self._wm_sensor_available('legacy_phase_code'):
-            entities.append(sensor.HaierWMLegacyPhaseCodeSensor(self))
         _LOGGER.debug("%s: WM created %s sensor entities", self.device_name, len(entities))
         return entities
 
@@ -2169,6 +2326,14 @@ class HaierWM(HaierDevice):
             entities.append(binary_sensor.HaierWMAntiCreaseBinarySensor(self))
         if self._wm_sensor_available('delayed_start_enabled'):
             entities.append(binary_sensor.HaierWMDelayedStartBinarySensor(self))
+        if self._wm_sensor_available('sound_notification'):
+            entities.append(binary_sensor.HaierWMSoundNotificationBinarySensor(self))
+        if self._wm_sensor_available('remote_control'):
+            entities.append(binary_sensor.HaierWMRemoteControlBinarySensor(self))
+        if self._wm_sensor_available('standby_mode'):
+            entities.append(binary_sensor.HaierWMStandbyModeBinarySensor(self))
+        if self._wm_sensor_available('child_lock'):
+            entities.append(binary_sensor.HaierWMChildLockBinarySensor(self))
         if self._wm_sensor_available('door_lock'):
             entities.append(binary_sensor.HaierWMDoorLockBinarySensor(self))
         if self._wm_sensor_available('door_open') or self._wm_sensor_available('raw_31'):
